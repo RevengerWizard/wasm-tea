@@ -4,7 +4,7 @@
 
 static TeaState* T = NULL;
 
-void new_state() 
+void new_state()
 {
 	if(T != NULL)
 		return;
@@ -21,10 +21,10 @@ void free_state()
 	T = NULL;
 }
 
-void run_tea(const char* script) 
+void run_tea(const char* script)
 {
 	if(T == NULL)
 		return;
 
-	tea_interpret(T, "", script);
+	tea_interpret(T, "?<wasm>", script);
 }

@@ -44,17 +44,20 @@
 	<h5>Output</h5>
 	<pre><div id="output"></div></pre>
 	<script>
-		function get_contents(url, callback) {
+		function get_contents(url, callback) 
+		{
 			var request = new XMLHttpRequest();
 
 			request.open('GET', url, true);
 			request.send(null);
 
 			request.onreadystatechange = function() {
-				if(request.readyState === 4 && request.status === 200) {
+				if(request.readyState === 4 && request.status === 200)
+				{
 					var type = request.getResponseHeader('Content-Type');
 		
-					if(type.indexOf("text") !== 1) {
+					if(type.indexOf("text") !== 1) 
+					{
 						callback(request.responseText);
 					}
 				}
@@ -67,8 +70,8 @@
 			minLines: 10,
 			fontSize: "12px",
 			wrap: true,
-			tabSize: 2,
-    	useSoftTabs: false,
+			tabSize: 4,
+    		useSoftTabs: false,
 			autoScrollEditorIntoView: true
 		});
 
@@ -86,7 +89,8 @@
 		{
 			var code = params.get("code");
 
-			if(code != null) {
+			if(code != null)
+			{
 				editor.setValue(code);
 				editor.clearSelection();
 			}
@@ -111,7 +115,12 @@
 			printErr: function(text) {
 				if(arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
 				console.error(text);
-				document.getElementById("output").innerHTML += `<span class="error">${text}</span>\n`;
+				const output = document.getElementById("output");
+				const span = document.createElement("span");
+
+				span.className = "error";
+				span.textContent = text + '\n';
+				output.appendChild(span);
 			}
         };
 
@@ -138,7 +147,7 @@
         {
 			clear_output();
 
-			let input = editor.getValue();
+			var input = editor.getValue();
 			run_tea(input);
 		}
 
