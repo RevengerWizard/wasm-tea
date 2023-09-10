@@ -31,7 +31,7 @@
 	</style>
 </head>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.24.1/ace.js" type="text/javascript" charset="utf-8"></script>
-<script src="https://cdn.jsdelivr.net/gh/egordorichev/lit-ace/mode-lit.js" type="text/javascript" charset="utf-8"></script>
+<script src="mode-tea.js" type="text/javascript" charset="utf-8"></script>
 <body>
 <div id="container">
 	<h1><a href="https://github.com/RevengerWizard/teascript">Teascript</a></h1>
@@ -63,6 +63,8 @@
 				}
 			}
 		}
+
+		ace.config.setModuleUrl("ace/mode/tea", "mode-tea.js");
 
 		var editor = ace.edit("editor", {
 			theme: "ace/theme/monokai",
@@ -96,7 +98,7 @@
 			}
 		}
 		
-		editor.session.setMode("ace/mode/lit");
+		editor.session.setMode("ace/mode/tea");
 		editor.session.setUseWorker(false);
 		editor.renderer.setScrollMargin(10, 10);
 
@@ -164,6 +166,6 @@
 		}
 	</script>
 </div>
-{{{ SCRIPT }}}
+<script async type="text/javascript" src="index.js"></script>
 </body>
 </html>
