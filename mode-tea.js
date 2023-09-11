@@ -121,7 +121,7 @@ define('ace/mode/tea_highlight_rules', ["require", "exports", "module", "ace/lib
 				regex: /\b(?:true|false|null)\b/
 			}, {
 				token: "constant.numeric.tea",
-				regex: /\b(?:0b[0-1_]+|0x[0-9a-fA-F_]+|0c[0-7_]+|(?:[1-9][0-9_]*|0)(?:\.[0-9_]+)?(?:e(?:\+|-)?[0-9]+)?)/
+				regex: /\b(?:0b[0-1_]+|0x[0-9a-fA-F_]+|0c[0-7_]+|(?:[1-9][0-9_]*|0)(?:\.[0-9_]+)?(?:[eE](?:\+|-)?[0-9]+)?)/
 			}],
 			"#comment": [{
 				token: "comment.line.tea",
