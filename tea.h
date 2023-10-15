@@ -49,13 +49,16 @@ typedef struct TeaClass
     TeaCFunction fn;
 } TeaClass;
 
-typedef enum TeaInterpretResult
+typedef TeaClass TeaInstance;
+
+typedef enum
 {
     TEA_OK,
-    TEA_COMPILE_ERROR,
+    TEA_SYNTAX_ERROR,
     TEA_RUNTIME_ERROR,
     TEA_MEMORY_ERROR,
-} TeaInterpretResult;
+    TEA_FILE_ERROR,
+} TeaStatus;
 
 typedef enum
 {
@@ -105,12 +108,13 @@ TEA_API bool tea_is_object(TeaState* T, int index);
 TEA_API bool tea_is_cfunction(TeaState* T, int index);
 
 TEA_API bool tea_to_bool(TeaState* T, int index);
-TEA_API double tea_to_numberx(TeaState* T, int index, int* is_num);
+TEA_API double tea_to_numberx(TeaState* T, int index, bool* is_num);
 TEA_API const char* tea_to_lstring(TeaState* T, int index, int* len);
 TEA_API TeaCFunction tea_to_cfunction(TeaState* T, int index);
 TEA_API void* tea_to_userdata(TeaState* T, int index);
 
-TEA_API int tea_equals(TeaState* T, int index1, int index2);
+TEA_API bool tea_equal(TeaState* T, int index1, int index2);
+TEA_API bool tea_rawequal(TeaState* T, int index1, int index2);
 
 TEA_API void tea_pop(TeaState* T, int n);
 
@@ -139,11 +143,11 @@ TEA_API void tea_add_item(TeaState* T, int list);
 TEA_API void tea_get_item(TeaState* T, int list, int index);
 TEA_API void tea_set_item(TeaState* T, int list, int index);
 
-TEA_API void tea_get_field(TeaState* T, int map);
-TEA_API void tea_set_field(TeaState* T, int map);
+TEA_API void tea_get_field(TeaState* T, int obj);
+TEA_API void tea_set_field(TeaState* T, int obj);
 
-TEA_API void tea_set_key(TeaState* T, int map, const char* key);
-TEA_API void tea_get_key(TeaState* T, int map, const char* key);
+TEA_API void tea_set_key(TeaState* T, int obj, const char* key);
+TEA_API void tea_get_key(TeaState* T, int obj, const char* key);
 
 TEA_API bool tea_get_global(TeaState* T, const char* name);
 TEA_API void tea_set_global(TeaState* T, const char* name);
@@ -151,7 +155,7 @@ TEA_API void tea_set_funcs(TeaState* T, const TeaReg* reg);
 
 TEA_API bool tea_has_module(TeaState* T, const char* module);
 
-TEA_API int tea_check_type(TeaState* T, int index, int type);
+TEA_API void tea_check_type(TeaState* T, int index, int type);
 TEA_API void tea_check_any(TeaState* T, int index);
 TEA_API double tea_check_number(TeaState* T, int index);
 TEA_API bool tea_check_bool(TeaState* T, int index);
@@ -160,15 +164,18 @@ TEA_API const char* tea_check_lstring(TeaState* T, int index, int* len);
 TEA_API TeaCFunction tea_check_cfunction(TeaState* T, int index);
 TEA_API void* tea_check_userdata(TeaState* T, int index);
 
+TEA_API void tea_opt_any(TeaState* T, int index);
 TEA_API bool tea_opt_bool(TeaState* T, int index, bool def);
 TEA_API double tea_opt_number(TeaState* T, int index, double def);
 TEA_API const char* tea_opt_lstring(TeaState* T, int index, const char* def, int* len);
 TEA_API int tea_check_option(TeaState* T, int index, const char* def, const char* const options[]);
 
-TEA_API void tea_gc(TeaState* T);
+TEA_API void tea_importf(TeaState* T, const char* mod, TeaCFunction openf, bool glb);
 
-TEA_API TeaInterpretResult tea_interpret(TeaState* T, const char* module_name, const char* source);
-TEA_API TeaInterpretResult tea_dofile(TeaState* T, const char* path);
+TEA_API int tea_gc(TeaState* T);
+
+TEA_API TeaStatus tea_interpret(TeaState* T, const char* module_name, const char* source);
+TEA_API TeaStatus tea_dofile(TeaState* T, const char* path);
 
 TEA_API void tea_call(TeaState* T, int n);
 
@@ -207,6 +214,7 @@ TEA_API void tea_error(TeaState* T, const char* fmt, ...);
 #define tea_is_list(T, n) (tea_type(T, (n)) == TEA_TYPE_LIST)
 #define tea_is_map(T, n) (tea_type(T, (n)) == TEA_TYPE_MAP)
 #define tea_is_function(T, n) (tea_type(T, (n)) == TEA_TYPE_FUNCTION)
+#define tea_is_instance(T, n) (tea_type(T, (n)) == TEA_TYPE_INSTANCE)
 #define tea_is_file(T, n) (tea_type(T, (n)) == TEA_TYPE_FILE)
 #define tea_is_userdata(T, n) (tea_type(T, (n)) == TEA_TYPE_USERDATA)
 
