@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #include <tea.h>
 
@@ -26,5 +27,8 @@ void run_tea(const char* script)
 	if(T == NULL)
 		return;
 
-	tea_interpret(T, "?<wasm>", script);
+	if(tea_load_bufferx(T, script, strlen(script), "?<wasm>", "t") == TEA_OK)
+	{
+		tea_pcall(T, 0);
+	}
 }
