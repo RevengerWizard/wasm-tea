@@ -3,10 +3,10 @@
 ** Configuration file for Teascript
 */
 
-#ifndef TEACONF_H
-#define TEACONF_H
+#ifndef _TEACONF_H
+#define _TEACONF_H
 
-#if defined(TEA_BUILD_DLL)
+#if defined(TEA_BUILD_AS_DLL)
 
 #if defined(TEA_CORE) || defined(TEA_LIB)
 #define TEA_API __declspec(dllexport)
@@ -20,10 +20,12 @@
 
 #endif
 
-#define TEAMOD_API  TEA_API
+#define TEAMOD_API  extern
 
 #ifndef TEA_NUMBER_FMT
 #define TEA_NUMBER_FMT		"%.16g"
 #endif
+
+#define TEA_MAX_CSTACK  8000
 
 #endif

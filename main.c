@@ -3,7 +3,7 @@
 
 #include <tea.h>
 
-static TeaState* T = NULL;
+static tea_State* T = NULL;
 
 void new_state()
 {
