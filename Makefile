@@ -1,6 +1,22 @@
-all: main.o
+CC = clang
+WASM_CFLAGS = -O2 -I. -D_WASI_EMULATED_SIGNAL -fno-stack-protector
+WASI_SYSROOT ?=
+WASM_LDFLAGS = -Wl,--no-entry,--export-all,--export=malloc,--export=free,--allow-undefined \
+               -Wl,--stack-first,-z,stack-size=1048576 \
+               -lsetjmp
 
-main.o: main.c libtea.a
-	emcc -I. main.c libtea.a -Os -o index.js -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s RESERVED_FUNCTION_POINTERS=1 -s EXPORTED_FUNCTIONS="['_new_state','_free_state','_run_tea']" -s EXPORTED_RUNTIME_METHODS="['ccall','cwrap']"
+LIBTEA = /c/Users/Valentin/Documents/Teascript/teascript/src/libtea-wasm.a
 
-.PHONY: all
+all: demo.wasm
+
+demo.wasm.o: demo.c
+	$(CC) --target=wasm32-wasip1 --sysroot=$(WASI_SYSROOT) $(WASM_CFLAGS) -c $< -o $@
+
+demo.wasm: demo.wasm.o
+	$(CC) --target=wasm32-wasip1 --sysroot=$(WASI_SYSROOT) $(WASM_CFLAGS) $(WASM_LDFLAGS) \
+		-Wl,--whole-archive $(LIBTEA) -Wl,--no-whole-archive $< -o $@
+
+.PHONY: all clean
+
+clean:
+	$(RM) demo.o demo.wasm
