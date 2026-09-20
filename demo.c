@@ -13,6 +13,7 @@ int tea_demo(const char* program)
         s = tea_pcall(T, 0);
     if(s != TEA_OK)
         fprintf(stderr, "%s\n", tea_to_string(T, -1));
+    fflush(stdin);
     fflush(stdout);
     fflush(stderr);
     tea_close(T);
