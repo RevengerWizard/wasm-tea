@@ -1,4 +1,4 @@
-#include "tea.h"
+#include <tea.h>
 #include <stdio.h>
 #include <string.h>
 

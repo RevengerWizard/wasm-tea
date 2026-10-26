@@ -1,25 +1,29 @@
+# env variables
+# WASI_SYSROOT should point to wasi-sdk
+# LIBTEA_WASM should point to the relocatable WASM file for the Teascript interpreter
+
 WASM_CC = clang --target=wasm32-wasip1 --sysroot=$(WASI_SYSROOT)
-WASM_LD = $(WASM_CC)
 WASM_CFLAGS = -O2 -I. -D_WASI_EMULATED_SIGNAL -fno-stack-protector
-WASI_SYSROOT ?=
-WASM_LDFLAGS = -Wl,--no-entry,--export-all,--export=malloc,--export=free,--allow-undefined \
-               -Wl,--stack-first,-z,stack-size=1048576 \
-               -lsetjmp
+WASM_LDFLAGS = -Wl,--export-all,--allow-undefined,--stack-first,-z,stack-size=1048576,-lsetjmp
+TARGET = demo.wasm
+GLUE_SRC = demo.c
+GLUE_OBJ = demo.wasm.o
 
-LIBTEA = /c/Users/Valentin/Documents/Teascript/teascript/src/libtea-wasm.a
-
-all: demo.wasm
 Q = @
 E = @echo
 
-demo.wasm.o: demo.c
-	$(E) "WASM CC   $@"
-	$(Q)$(WASM_CC) $(WASM_CFLAGS) -c $< -o $@
+all: $(TARGET)
 
-demo.wasm: demo.wasm.o
-	$(E) "WASM LD   demo.wasm"
-	$(Q)$(WASM_LD) $(WASM_CFLAGS) $(WASM_LDFLAGS) -Wl,--whole-archive $(LIBTEA) -Wl,--no-whole-archive $< -o $@
+$(GLUE_OBJ): $(GLUE_SRC)
+	$(E) "WASM CC      $<"
+	$(Q) $(WASM_CC) $(WASM_CFLAGS) -c -o $@ $<
+
+$(TARGET): $(LIBTEA_WASM) $(GLUE_OBJ)
+	$(E) "WASM LD      $@"
+	$(Q) $(WASM_CC) $(WASM_LDFLAGS) -o $@ $(LIBTEA_WASM) $(GLUE_OBJ)
 	$(E) "OK        Successfully built demo.wasm"
+#@echo "WASM OPT     $@"
+#@$(WASM_OPT) $(WASM_OPT_FLAGS) $@ -o $@
 
 .PHONY: all clean
 
