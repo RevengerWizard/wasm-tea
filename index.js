@@ -18,6 +18,16 @@ function get_contents(url, callback)
 }
 
 ace.config.setModuleUrl("ace/mode/tea", "mode-tea.js");
+var appScriptUrl = document.currentScript ? document.currentScript.src : location.href;
+
+if ("serviceWorker" in navigator && location.protocol !== "file:") {
+	navigator.serviceWorker.addEventListener("controllerchange", function() {
+		window.location.reload();
+	}, { once: true });
+	navigator.serviceWorker.register("sw.js").catch(function(error) {
+		console.error("COOP/COEP service worker registration failed:", error);
+	});
+}
 
 var editor = ace.edit("editor", {
 	theme: "ace/theme/monokai",
@@ -55,8 +65,11 @@ editor.session.setMode("ace/mode/tea");
 editor.session.setUseWorker(false);
 editor.renderer.setScrollMargin(10, 10);
 
-var wasm, memory;
-var run_tea;
+var worker;
+var inputBuffer;
+var inputControl;
+var waitingForInput = false;
+var running = false;
 
 function write_output(text, error) {
 	const output = document.getElementById("output");
@@ -66,113 +79,136 @@ function write_output(text, error) {
 		span.textContent = text;
 		output.appendChild(span);
 	} else {
-		output.innerText += text;
+		output.insertBefore(document.createTextNode(text), document.getElementById("output-input"));
 	}
 }
 
-async function load_wasm() {
-	const response = await fetch("demo.wasm");
-	const wasi = {
-		clock_res_get(clockId, resolutionPtr) {
-			if (clockId !== 0 && clockId !== 1) return 28;
-			new DataView(memory.buffer).setBigUint64(Number(resolutionPtr), 1n, true);
-			return 0;
-		},
-		clock_time_get(clockId, precision, timePtr) {
-			let milliseconds;
-			if (clockId === 0) milliseconds = Date.now();
-			else if (clockId === 1) milliseconds = performance.timeOrigin + performance.now();
-			else return 28;
-			new DataView(memory.buffer).setBigUint64(Number(timePtr), BigInt(Math.floor(milliseconds * 1000000)), true);
-			return 0;
-		},
-		fd_read(fd, iovsPtr, iovsLength, bytesReadPtr) {
-			if (fd !== 0) return 8;
-			const input = new TextEncoder().encode((window.prompt("Teascript input:") || "") + "\n");
-			const iovs = new Uint32Array(memory.buffer, iovsPtr, iovsLength * 2);
-			let sourceOffset = 0;
-			let bytes = 0;
-			for (let i = 0; i < iovsLength * 2 && sourceOffset < input.length; i += 2) {
-				const length = Math.min(iovs[i + 1], input.length - sourceOffset);
-				new Uint8Array(memory.buffer, iovs[i], length).set(input.subarray(sourceOffset, sourceOffset + length));
-				sourceOffset += length;
-				bytes += length;
-			}
-			new DataView(memory.buffer).setInt32(bytesReadPtr, bytes, true);
-			return 0;
-		},
-		fd_write(fd, iovsPtr, iovsLength, bytesWrittenPtr) {
-			const iovs = new Uint32Array(memory.buffer, iovsPtr, iovsLength * 2);
-			let text = "", bytes = 0;
-			const decoder = new TextDecoder();
-			for (let i = 0; i < iovsLength * 2; i += 2) {
-				text += decoder.decode(new Uint8Array(memory.buffer, iovs[i], iovs[i + 1]));
-				bytes += iovs[i + 1];
-			}
-			new DataView(memory.buffer).setInt32(bytesWrittenPtr, bytes, true);
-			if (fd === 1) console.log(text);
-			else console.error(text);
-			write_output(text, fd !== 1);
-			return 0;
+function show_terminal_input() {
+	const output = document.getElementById("output");
+	const line = document.createElement("span");
+	line.id = "output-input";
+	line.contentEditable = "true";
+	line.setAttribute("role", "textbox");
+	line.setAttribute("aria-label", "Terminal input");
+	line.setAttribute("spellcheck", "false");
+	output.appendChild(line);
+	line.focus();
+}
+
+function remove_terminal_input() {
+	const line = document.getElementById("output-input");
+	if (line) line.remove();
+}
+
+async function start_worker() {
+	if (typeof SharedArrayBuffer === "undefined" || !crossOriginIsolated) {
+		write_output("Terminal input requires SharedArrayBuffer. Serve this page with cross-origin isolation enabled.\n", true);
+		return false;
+	}
+	const workerUrl = new URL("worker.js", appScriptUrl);
+	try {
+		const response = await fetch(workerUrl, { cache: "no-store" });
+		if (!response.ok) {
+			throw new Error("HTTP " + response.status + " while loading " + workerUrl.pathname);
+		}
+	} catch (error) {
+		write_output("Could not load Teascript worker (" + workerUrl.href + "): " + (error.message || String(error)) + "\n", true);
+		return false;
+	}
+	try {
+		worker = new Worker(workerUrl);
+	} catch (error) {
+		write_output("Could not start Teascript worker: " + (error.message || String(error)) + "\n", true);
+		return false;
+	}
+	worker.onmessage = function(event) {
+		const message = event.data;
+		if (message.type === "out") write_output(message.text, message.error);
+		else if (message.type === "stdin") {
+			waitingForInput = true;
+			show_terminal_input();
+		}
+		else if (message.type === "done") {
+			remove_terminal_input();
+			running = false;
+			if (message.status !== 0) write_output("Teascript returned error status " + message.status + "\n", true);
+			else write_output("\n");
+			worker.terminate();
+			worker = null;
+		}
+		else if (message.type === "trap") {
+			remove_terminal_input();
+			running = false;
+			write_output("Teascript trapped: " + message.message + "\n", true);
+			worker.terminate();
+			worker = null;
 		}
 	};
-	const imports = {
-		wasi_snapshot_preview1: new Proxy(wasi, { get: (target, name) => target[name] || (() => 0) }),
-		env: new Proxy({
-			clock: () => BigInt(Math.trunc(performance.now() * 1000))
-		}, { get: (target, name) => target[name] || (() => 0) })
+	worker.onerror = function(event) {
+		remove_terminal_input();
+		running = false;
+		const detail = event.message || (event.error && event.error.message) || "Worker script could not be evaluated or loaded";
+		const location = event.filename ? " (" + event.filename + ":" + event.lineno + ")" : "";
+		write_output("Worker failed at " + workerUrl.href + ": " + detail + location + "\n", true);
+		worker.terminate();
+		worker = null;
 	};
-	const result = await WebAssembly.instantiateStreaming(response, imports).catch(async () =>
-		WebAssembly.instantiate(await (await fetch("demo.wasm")).arrayBuffer(), imports));
-	wasm = result.instance.exports;
-	memory = wasm.memory;
-	run_tea = wasm.tea_demo;
-	if (typeof run_tea !== "function" || typeof wasm.malloc !== "function" || typeof wasm.free !== "function") {
-		throw new Error("demo.wasm must export tea_demo, malloc, and free");
-	}
+	worker.onmessageerror = function() {
+		remove_terminal_input();
+		running = false;
+		write_output("Worker message could not be read by the page.\n", true);
+		worker.terminate();
+		worker = null;
+	};
+	return true;
 }
 
-load_wasm().catch(function(error) {
-	write_output("WASM loading failed: " + (error.stack || error) + '\n', true);
+function submit_input() {
+	if (!waitingForInput) return;
+	const line = document.getElementById("output-input");
+	if (!line) return;
+	const value = line.textContent.replace(/[\r\n]/g, "");
+	const bytes = new TextEncoder().encode(value + "\n");
+	if (bytes.length > inputBuffer.byteLength - 8) {
+		write_output("Input line is too long.\n", true);
+		return;
+	}
+	new Uint8Array(inputBuffer, 8).set(bytes);
+	line.replaceWith(document.createTextNode(value + "\n"));
+	Atomics.store(inputControl, 1, bytes.length);
+	Atomics.store(inputControl, 0, 1);
+	Atomics.notify(inputControl, 0);
+	waitingForInput = false;
+}
+
+document.getElementById("output").addEventListener("keydown", function(event) {
+	if (event.key === "Enter" && event.target.id === "output-input") {
+		event.preventDefault();
+		submit_input();
+	}
 });
 
 function clear_output()
 {
+	if (waitingForInput) return;
 	document.getElementById("output").innerHTML = "";
 }
 
-function run_input()
+async function run_input()
 {
+	if (running) return;
 	clear_output();
-
-	var input = editor.getValue();
-	if (!run_tea) {
-		write_output("WASM is still loading.\n", true);
-		return;
+	if (!worker) {
+		running = true;
+		if (!await start_worker()) {
+			running = false;
+			return;
+		}
 	}
-	var bytes = new TextEncoder().encode(input);
-	// NUL-terminate in case the runtime expects a C string.
-	var pointer = wasm.malloc(bytes.length + 1);
-	new Uint8Array(memory.buffer, pointer, bytes.length).set(bytes);
-	new Uint8Array(memory.buffer, pointer + bytes.length, 1)[0] = 0;
-
-	var status;
-	try {
-		status = run_tea(pointer);
-	} catch (err) {
-		console.log(err);
-		write_output("Teascript trapped: " + (err.message || err) + '\n', true);
-		return;
-	}
-
-	try {
-		wasm.free(pointer);
-	} catch (err) {
-		console.log("free failed:", err);
-	}
-
-	if (status !== 0) write_output("Teascript returned error status " + status + "\n", true);
-	else write_output("\n");
+	inputBuffer = new SharedArrayBuffer(8 + 65528);
+	inputControl = new Int32Array(inputBuffer, 0, 2);
+	running = true;
+	worker.postMessage({ code: editor.getValue(), sab: inputBuffer });
 }
 
 function share()

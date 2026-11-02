@@ -20,6 +20,18 @@
 			overflow-y: auto;
 		}
 
+		#output {
+			white-space: pre-wrap;
+			font-family: monospace;
+			min-height: 1em;
+		}
+
+		#output-input {
+			min-width: 1ch;
+			outline: none;
+			white-space: pre-wrap;
+		}
+
 		#container {
 			max-width: 800px;
 			margin: 100px auto;
@@ -30,7 +42,7 @@
 		}
 	</style>
 </head>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.24.1/ace.js" type="text/javascript" charset="utf-8"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.24.1/ace.js" crossorigin="anonymous" type="text/javascript" charset="utf-8"></script>
 <script src="mode-tea.js" type="text/javascript" charset="utf-8"></script>
 <body>
 <div id="container">
@@ -42,7 +54,7 @@
 	<button id="share" onclick="share()">Share Code</button>
 
 	<h5>Output</h5>
-	<pre><div id="output"></div></pre>
+	<pre id="output" aria-label="Program output"></pre>
 	<script src="index.js"></script>
 </div>
 </body>
