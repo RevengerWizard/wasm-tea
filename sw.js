@@ -7,8 +7,8 @@ self.addEventListener("activate", function(event) {
 });
 
 self.addEventListener("fetch", function(event) {
-	if (event.request.cache === "only-if-cached" && event.request.mode !== "same-origin") return;
-	if (new URL(event.request.url).origin !== self.location.origin) return;
+	if(event.request.cache === "only-if-cached" && event.request.mode !== "same-origin") return;
+	if(new URL(event.request.url).origin !== self.location.origin) return;
 
 	event.respondWith(fetch(event.request).then(function(response) {
 		// Keep page, worker, and WASM responses under the same isolation policy.
